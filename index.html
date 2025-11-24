@@ -1,23 +1,28 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Baneh Water - تانکرهای آب</title>
-  
+  <title>Water Tank - تانکرهای آب</title>
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="style.css">
 
+  <link rel="stylesheet" href="style.css?v=1.1">
   <style>
-    body { touch-action: none; }
+    body {
+      touch-action: none;
+    }
   </style>
 </head>
+
 <body>
 
   <header class="site-header">
     <div class="header-content">
-      <i class="fas fa-faucet-drip"></i> <h1>تانکرهای استقراریافته ده هزار لیتری سطح شهر بانه</h1>
+      <i class="fas fa-faucet-drip"></i>
+      <h1>تانکرهای استقراریافته ده هزار لیتری سطح شهر بانه</h1>
     </div>
   </header>
 
@@ -25,11 +30,11 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-  
+
   <script>
     // 1. تعریف سیستم مختصات UTM برای بانه (Zone 38N)
     const utmProjection = "+proj=utm +zone=38 +datum=WGS84 +units=m +no_defs";
-    
+
     function convertUtmToLatLng(easting, northing) {
       const result = proj4(utmProjection, 'EPSG:4326', [easting, northing]);
       return [result[1], result[0]];
@@ -37,28 +42,28 @@
 
     // === تابع  برای اشتراک‌گذاری موقعیت ===
     function shareLocation(lat, lng, name) {
-        const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
-        const shareData = {
-            title: 'موقعیت تانکر آب',
-            text: `📍 موقعیت تانکر آب:\n${name}\n\n`,
-            url: mapLink
-        };
+      const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+      const shareData = {
+        title: 'موقعیت تانکر آب',
+        text: `📍 موقعیت تانکر آب:\n${name}\n\n`,
+        url: mapLink
+      };
 
-        // اگر مرورگر قابلیت Share داشت (موبایل)
-        if (navigator.share) {
-            navigator.share(shareData).catch((err) => console.log('Error sharing:', err));
-        } else {
-            // اگر کامپیوتر بود، لینک را کپی کن
-            navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`).then(() => {
-                alert('لینک و متن موقعیت کپی شد! می‌توانید در پیام‌رسان‌ها Paste کنید.');
-            });
-        }
+      // اگر مرورگر قابلیت Share داشت (موبایل)
+      if (navigator.share) {
+        navigator.share(shareData).catch((err) => console.log('Error sharing:', err));
+      } else {
+        // اگر کامپیوتر بود، لینک را کپی کن
+        navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`).then(() => {
+          alert('لینک و متن موقعیت کپی شد! می‌توانید در پیام‌رسان‌ها Paste کنید.');
+        });
+      }
     }
 
     // 2. راه‌اندازی نقشه
     const map = L.map('map', {
-      zoomControl: false 
-    }).setView([35.997, 45.887], 14); 
+      zoomControl: false
+    }).setView([35.997, 45.887], 14);
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
@@ -111,15 +116,15 @@
       { id: 37, name: "مسجد واقع در شهرک دادگستری", x: 578242, y: 3984984 },
       { id: 39, name: "ارشاد اسلامی وروری روبروی فلکه هنر", x: 580200, y: 3983696 }
     ];
-    
+
     // 5. حلقه برای ایجاد مارکرها
     waterPointsUTM.forEach(point => {
       // بررسی اینکه مختصات وجود داشته باشد
-      if(!point.x || !point.y) return;
+      if (!point.x || !point.y) return;
 
       const latLng = convertUtmToLatLng(point.x, point.y);
       const marker = L.marker(latLng, { icon: waterIcon }).addTo(map);
-      
+
       const googleMapsUrl = `https://www.google.com/maps?q=${latLng[0]},${latLng[1]}`;
 
       const popupContent = `
@@ -144,4 +149,5 @@
 
   </script>
 </body>
+
 </html>

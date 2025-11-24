@@ -1,7 +1,8 @@
 /* style.css */
 
 /* تنظیمات کلی صفحه */
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     height: 100%;
@@ -93,7 +94,8 @@ html, body {
     display: block;
     width: 100%;
     padding: 10px 0;
-    background-color: #2a9d8f; /* سبز */
+    background-color: #2a9d8f;
+    /* سبز */
     color: white;
     text-decoration: none;
     border-radius: 8px;
@@ -103,14 +105,25 @@ html, body {
     margin-top: 8px;
     border: none;
     cursor: pointer;
-    font-family: inherit; /* برای ارث‌بری فونت فارسی */
+    font-family: inherit;
+    /* برای ارث‌بری فونت فارسی */
+
+    /* در فایل style.css */
+    -webkit-appearance: none;
+    /* برای سافاری و آیفون */
+    -moz-appearance: none;
+    appearance: none;
+    border: none;
+    /* برای اطمینان */
+
 }
 
 .share-btn:hover {
     background-color: #21867a;
 }
 
-.navigate-btn i, .share-btn i {
+.navigate-btn i,
+.share-btn i {
     margin-left: 5px;
 }
 
@@ -122,5 +135,5 @@ html, body {
     background: #0077b6;
     border-radius: 50%;
     border: 2px solid white;
-    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
 }
