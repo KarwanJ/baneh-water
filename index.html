@@ -8,13 +8,19 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="style.css?v=1.3">
 
-  <link rel="stylesheet" href="style.css?v=1.1">
   <style>
     body {
       touch-action: none;
     }
   </style>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js" defer></script>
+  <script src="data.js" defer></script>
 </head>
 
 <body>
@@ -22,132 +28,214 @@
   <header class="site-header">
     <div class="header-content">
       <i class="fas fa-faucet-drip"></i>
-      <h1>تانکرهای استقراریافته ده هزار لیتری سطح شهر بانه</h1>
+      <h1>تانکرهای هزارلیتری مستقر در مدارس شهر بانه</h1>
     </div>
   </header>
 
   <div id="map"></div>
+  <!-- دکمه های تغییر نقشه و موقعیت من -->
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <div class="map-toggle-wrapper top-right">
+    <span class="toggle-label">تغییر نقشه</span>
+    <label class="switch">
+      <input type="checkbox" id="layerCheckbox" onchange="toggleTileLayer()">
+      <span class="slider round"></span>
+    </label>
+  </div>
 
-  <script>
-    // 1. تعریف سیستم مختصات UTM برای بانه (Zone 38N)
-    const utmProjection = "+proj=utm +zone=38 +datum=WGS84 +units=m +no_defs";
+  <div id="locate-btn" class="custom-control-btn bottom-center" onclick="locateUser()">
+    <i class="fas fa-crosshairs"></i>
+  </div>
 
-    function convertUtmToLatLng(easting, northing) {
-      const result = proj4(utmProjection, 'EPSG:4326', [easting, northing]);
-      return [result[1], result[0]];
-    }
+  <!-- legend  -->
+  <div id="legend">
+    <div class="legend-item">
+      <div class="school-icon"> <i class="fas fa-school"></i>
+      </div>
+      <span> مدرسه </span>
+    </div>
 
-    // === تابع  برای اشتراک‌گذاری موقعیت ===
-    function shareLocation(lat, lng, name) {
-      const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
-      const shareData = {
-        title: 'موقعیت تانکر آب',
-        text: `📍 موقعیت تانکر آب:\n${name}\n\n`,
-        url: mapLink
-      };
 
-      // اگر مرورگر قابلیت Share داشت (موبایل)
-      if (navigator.share) {
-        navigator.share(shareData).catch((err) => console.log('Error sharing:', err));
-      } else {
-        // اگر کامپیوتر بود، لینک را کپی کن
-        navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`).then(() => {
-          alert('لینک و متن موقعیت کپی شد! می‌توانید در پیام‌رسان‌ها Paste کنید.');
+    <!-- legend finish -->
+
+    <script>
+      // چون از defer استفاده کردیم، منتظر لود کامل می‌مانیم
+      document.addEventListener('DOMContentLoaded', function () {
+
+        // تست اینکه آیا فایل دیتا درست لود شده؟
+        if (typeof waterPoints === 'undefined') {
+          console.error("فایل data.js لود نشده است!");
+          alert("خطا در بارگذاری اطلاعات.");
+          return;
+        }
+
+        // === 1. تعریف لایه‌های نقشه ===
+        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '© CartoDB',
+          maxZoom: 19
         });
-      }
-    }
 
-    // 2. راه‌اندازی نقشه
-    const map = L.map('map', {
-      zoomControl: false
-    }).setView([35.997, 45.887], 14);
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap',
+          maxZoom: 19
+        });
 
-    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+        // === 2. راه‌اندازی نقشه ===
+        const map = L.map('map', {
+          zoomControl: false,
+          layers: [cartoLayer]
+        }).setView([35.997, 45.887], 14);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19
-    }).addTo(map);
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-    // 3. آیکون سفارشی
-    const waterIcon = L.divIcon({
-      className: 'custom-div-icon',
-      html: "<div class='water-icon'><i class='fas fa-glass-water'></i></div>",
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -10]
-    });
+        let isCarto = true;
 
-    // 4. لیست نقاط (مختصات جدید طبق فایل اکسل)
-    const waterPointsUTM = [
-      { id: 1, name: "آتش نشانی آزادگان", x: 579250, y: 3984558 },
-      { id: 2, name: "بنیاد مسکن", x: 577716, y: 3985485 },
-      { id: 3, name: "پمپ بنزین سیار", x: 579528, y: 3984865 },
-      { id: 4, name: "اداره بهزیستی (۱۰۰ متر پایین تر از درب ورودی)", x: 580068, y: 3984407 },
-      { id: 5, name: "آتش نشانی ترخان آباد (جنب درب ورودی)", x: 581340, y: 3983263 },
-      { id: 6, name: "مدرسه شبلی", x: 580693, y: 3982741 },
-      { id: 7, name: "فرمانداری (اول کوچه زندان)", x: 580029, y: 3982725 },
-      { id: 8, name: "اداره کار (۳۰ متر پایین تر از درب ورودی به طرف تالار چوپی)", x: 578859, y: 3983516 },
-      { id: 9, name: "مدرسه بنی رزان", x: 576825, y: 3984376 },
-      { id: 10, name: "فنی حرفه ای (جنب درب ورودی ساختمان)", x: 578322, y: 3983872 },
-      { id: 11, name: "اداره مخابرات (دیوار پشتی اداره)", x: 580023, y: 3983618 },
-      { id: 12, name: "اداره آموزش و پرورش (کوچه جنب آموزش پرورش روبروی اداره برق)", x: 580493, y: 3983191 },
-      { id: 13, name: "مدرسه امام خمینی (جاده سلیمانیه)", x: 578295, y: 3984241 },
-      { id: 14, name: "مدرسه کاوه محمدی (چهار راه ثبت احوال)", x: 579580, y: 3982887 },
-      { id: 15, name: "مدرسه دمامه (ضلع شرقی مدرسه)", x: 582429, y: 3982069 },
-      { id: 16, name: "مدرسه کوی فرهنگیان (ورودی زمین چمن)", x: 580731, y: 3984473 },
-      { id: 17, name: "مدرسه شهرک نور", x: 581515, y: 3982600 },
-      { id: 18, name: "مدرسه احمد آباد جنب مسکن مهرها", x: 581447, y: 3984176 },
-      { id: 19, name: "تیرچه سعیدپور ترخان آباد", x: 581650, y: 3983122 },
-      { id: 21, name: "باشگاه صفری", x: 581032, y: 3983103 },
-      { id: 23, name: "اتفاقات اداره آب (۵۰ متر بالاتر از درب ورودی روبروی کمیته امداد)", x: 580710, y: 3982470 },
-      { id: 24, name: "مدرسه دکتر حسابی", x: 580810, y: 3983465 },
-      { id: 27, name: "مخابرات سابق", x: 580176, y: 3983412 },
-      { id: 28, name: "پارک مسکن مهر میدان گاز", x: 580735, y: 3984962 },
-      { id: 29, name: "سپاه صالح آباد", x: 578993, y: 3984812 },
-      { id: 30, name: "خانه سازمانی هنگ مرزی واقع در میدان شورا", x: 578502, y: 3984978 },
-      { id: 31, name: "مدرسه شهرک رفاه بلوار کردستان", x: 577615, y: 3984800 },
-      { id: 34, name: "مسجد واقع در شهرک لاله", x: 577447, y: 3984117 },
-      { id: 35, name: "باشگاه گلشهر", x: 578619, y: 3984049 },
-      { id: 36, name: "مدرسه فنی حرفه ای سلیمان خاطر", x: 579006, y: 3984048 },
-      { id: 37, name: "مسجد واقع در شهرک دادگستری", x: 578242, y: 3984984 },
-      { id: 39, name: "ارشاد اسلامی وروری روبروی فلکه هنر", x: 580200, y: 3983696 }
-    ];
 
-    // 5. حلقه برای ایجاد مارکرها
-    waterPointsUTM.forEach(point => {
-      // بررسی اینکه مختصات وجود داشته باشد
-      if (!point.x || !point.y) return;
 
-      const latLng = convertUtmToLatLng(point.x, point.y);
-      const marker = L.marker(latLng, { icon: waterIcon }).addTo(map);
+        // متغیر برای مدیریت وضعیت سوییچ نقشه
+        // این تابع الان چک میکنه دکمه روشن هست یا خاموش
+        window.toggleTileLayer = function () {
+          const checkbox = document.getElementById('layerCheckbox');
 
-      const googleMapsUrl = `https://www.google.com/maps?q=${latLng[0]},${latLng[1]}`;
+          if (checkbox.checked) {
+            // اگر تیک خورده بود (اسلاید شد)، برو روی حالت OSM
+            map.removeLayer(cartoLayer);
+            map.addLayer(osmLayer);
+          } else {
+            // اگر تیک نداشت، برگرد به حالت Carto
+            map.removeLayer(osmLayer);
+            map.addLayer(cartoLayer);
+          }
+        };
 
-      const popupContent = `
-        <div class="popup-content">
-          <h3>${point.name}</h3>
-          <p>کد نقطه: ${point.id}</p>
-          
-          <a href="${googleMapsUrl}" target="_blank" class="navigate-btn">
-            <i class="fas fa-location-arrow"></i> مسیریابی
-          </a>
-          
-          <button class="share-btn" onclick="shareLocation(${latLng[0]}, ${latLng[1]}, '${point.name}')">
-            <i class="fas fa-share-nodes"></i> ارسال موقعیت
-          </button>
-        </div>
-      `;
+        // === 3. تعریف آیکون‌ها ===
+        const icon10k = L.divIcon({
+          className: 'icon-10k',
+          html: "<div class='water-icon'><i class='fas fa-glass-water'></i></div>",
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -10]
+        });
 
-      marker.bindPopup(popupContent, {
-        className: 'custom-popup'
+        const icon5k = L.divIcon({
+          className: 'icon-5k',
+          html: "<div class='water-icon-5k'><i class='fas fa-glass-water'></i></div>",
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -10]
+        });
+
+        const iconSchool = L.divIcon({
+          className: 'icon-school',
+          html: "<div class='school-icon'><i class='fas fa-school'></i></div>",
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+          popupAnchor: [0, -8]
+        });
+
+        // === 4. توابع کاربردی ===
+        window.shareLocation = function (lat, lng, name) {
+          // اصلاح لینک گوگل مپ برای اشتراک گذاری
+          const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+          const shareData = {
+            title: 'موقعیت تانکر آب',
+            text: `📍 ${name}\n`,
+            url: mapLink
+          };
+          if (navigator.share) {
+            navigator.share(shareData).catch(console.error);
+          } else {
+            navigator.clipboard.writeText(mapLink).then(() => alert('لینک کپی شد!'));
+          }
+        };
+
+        // === 5. ایجاد کلاستر مارکرها ===
+        const markersCluster = L.markerClusterGroup({
+          showCoverageOnHover: false,
+          spiderfyOnMaxZoom: true,
+          disableClusteringAtZoom: 18
+        });
+
+        waterPoints.forEach(point => {
+          if (!point.lat || !point.lng) return;
+
+          let iconToUse = icon10k;
+          if (point.type === "5k") iconToUse = icon5k;
+          if (point.type === "school") iconToUse = iconSchool;
+
+          const marker = L.marker([point.lat, point.lng], { icon: iconToUse });
+
+          // اصلاح لینک مسیریابی گوگل مپ (باگ قبلی اینجا رفع شد)
+          const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}`;
+
+          const popupContent = `
+                <div class="popup-content">
+                  <h3>${point.name}</h3>
+                  <p>نوع: ${point.schoolType || 'نامشخص'}</p>
+                  <p>${point.address || ''}</p>
+                  <a href="${googleMapsUrl}" target="_blank" class="navigate-btn">
+                    <i class="fas fa-location-arrow"></i> مسیریابی
+                  </a>
+                  <button class="share-btn" onclick="shareLocation(${point.lat}, ${point.lng}, '${point.name}')">
+                    <i class="fas fa-share-nodes"></i> اشتراک‌گذاری
+                  </button>
+                </div>
+            `;
+
+          marker.bindPopup(popupContent, { className: 'custom-popup' });
+          markersCluster.addLayer(marker);
+        });
+
+        map.addLayer(markersCluster);
+
+        // === 6. موقعیت‌یابی کاربر ===
+        let userMarker = null;
+
+        window.locateUser = function () {
+          if (!navigator.geolocation) {
+            alert("مرورگر پشتیبانی نمی‌کند.");
+            return;
+          }
+
+          const btnIcon = document.querySelector('#locate-btn i');
+          btnIcon.classList.remove('fa-crosshairs');
+          btnIcon.classList.add('fa-spinner', 'fa-spin');
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+
+              map.setView([lat, lng], 16);
+
+              if (userMarker) map.removeLayer(userMarker);
+
+              userMarker = L.circleMarker([lat, lng], {
+                radius: 8,
+                fillColor: "#ff5722",
+                color: "#fff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+              }).addTo(map);
+
+              userMarker.bindPopup("موقعیت شما").openPopup();
+
+              btnIcon.classList.remove('fa-spinner', 'fa-spin');
+              btnIcon.classList.add('fa-crosshairs');
+            },
+            (error) => {
+              console.error(error);
+              alert("دسترسی به موقعیت مکانی داده نشد.");
+              btnIcon.classList.remove('fa-spinner', 'fa-spin');
+              btnIcon.classList.add('fa-crosshairs');
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+        };
+
       });
-    });
-
-  </script>
+    </script>
 </body>
 
 </html>
