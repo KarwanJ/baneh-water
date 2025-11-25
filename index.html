@@ -188,50 +188,75 @@
 
         map.addLayer(markersCluster);
 
-        // === 6. موقعیت‌یابی کاربر ===
         let userMarker = null;
+
+        // === 6. موقعیت‌یابی کاربر (اصلاح شده و قوی‌تر) ===
 
         window.locateUser = function () {
           if (!navigator.geolocation) {
-            alert("مرورگر پشتیبانی نمی‌کند.");
+            alert("مرورگر شما قدیمی است و پشتیبانی نمی‌کند.");
             return;
           }
 
           const btnIcon = document.querySelector('#locate-btn i');
+          // حالت لودینگ
           btnIcon.classList.remove('fa-crosshairs');
           btnIcon.classList.add('fa-spinner', 'fa-spin');
 
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const lat = position.coords.latitude;
-              const lng = position.coords.longitude;
+          // تنظیمات موقعیت‌یابی
+          const options = {
+            enableHighAccuracy: true, // اولویت با GPS دقیق
+            timeout: 15000,           // 15 ثانیه صبر کن (قبلاً 5 بود)
+            maximumAge: 10000         // اگر لوکیشن 10 ثانیه پیش را داری، همان را بده (سریع‌تر)
+          };
 
-              map.setView([lat, lng], 16);
+          function success(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
 
-              if (userMarker) map.removeLayer(userMarker);
+            // زوم روی کاربر
+            map.setView([lat, lng], 16);
 
-              userMarker = L.circleMarker([lat, lng], {
-                radius: 8,
-                fillColor: "#ff5722",
-                color: "#fff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
-              }).addTo(map);
+            // حذف مارکر قبلی
+            if (userMarker) map.removeLayer(userMarker);
 
-              userMarker.bindPopup("موقعیت شما").openPopup();
+            // ایجاد مارکر جدید (دایره نارنجی)
+            userMarker = L.circleMarker([lat, lng], {
+              radius: 10,
+              fillColor: "#ff5722",
+              color: "#fff",
+              weight: 3,
+              opacity: 1,
+              fillOpacity: 0.8
+            }).addTo(map);
 
-              btnIcon.classList.remove('fa-spinner', 'fa-spin');
-              btnIcon.classList.add('fa-crosshairs');
-            },
-            (error) => {
-              console.error(error);
-              alert("دسترسی به موقعیت مکانی داده نشد.");
-              btnIcon.classList.remove('fa-spinner', 'fa-spin');
-              btnIcon.classList.add('fa-crosshairs');
-            },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-          );
+            userMarker.bindPopup("موقعیت شما").openPopup();
+
+            // بازگشت آیکون دکمه
+            btnIcon.classList.remove('fa-spinner', 'fa-spin');
+            btnIcon.classList.add('fa-crosshairs');
+          }
+
+          function error(err) {
+            // بازگشت آیکون دکمه
+            btnIcon.classList.remove('fa-spinner', 'fa-spin');
+            btnIcon.classList.add('fa-crosshairs');
+
+            // تشخیص دقیق علت خطا
+            if (err.code === 1) {
+                alert("شما اجازه دسترسی به موقعیت مکانی را رد کردید.");
+            } else if (err.code === 2) {
+                alert("موقعیت مکانی شما پیدا نشد (GPS خاموش است؟).");
+            } else if (err.code === 3) {
+                alert("زمان درخواست تمام شد. لطفاً دوباره تلاش کنید.");
+                // نکته: اگر این خطا زیاد رخ داد، یعنی اینترنت یا GPS ضعیف است
+            } else {
+                alert("خطای ناشناخته در دریافت موقعیت.");
+            }
+            console.warn(`ERROR(${err.code}): ${err.message}`);
+          }
+
+          navigator.geolocation.getCurrentPosition(success, error, options);
         };
 
       });
